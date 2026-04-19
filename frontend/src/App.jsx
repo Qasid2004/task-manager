@@ -1,73 +1,18 @@
-const handleAuth = async (formData, endpoint) => {
-  try {
-    const response = await fetch(`http://localhost:5000/api/auth/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    const data = await response.json();
-    if (data.token) {
-      localStorage.setItem("taskly_token", data.token);
-      localStorage.setItem("taskly_user", JSON.stringify(data.user));
-      setToken(data.token);
-      setUser(data.user);
-      setIsAppVisible(true);
-    } else {
-      alert(data.message || "Authentication failed");
-    }
-  } catch (err) {
-    console.error("Auth error:", err);
-  }
-};
-
-const handleLogout = () => {
-  localStorage.removeItem("taskly_token");
-  localStorage.removeItem("taskly_user");
-  setToken(null);
-  setUser(null);
-  setIsAppVisible(false);
-  // Optional: Reset tables to default for the next guest
-  setTables([
-    { id: 0, title: "University Tasks", tasks: [], isArchived: false },
-    { id: 1, title: "Personal Project", tasks: [], isArchived: false },
-  ]);
-};
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Minus, Search, Filter, Settings, LayoutGrid, ChevronRight, MoreVertical, Download, Moon, Sun, Bell, BellOff, ArchiveRestore, Archive, Mail, Lock, User } from 'lucide-react';
+import { Plus, Minus, X, Search, Filter, Settings, LayoutGrid, ChevronRight, MoreVertical, Download, Moon, Sun, Bell, BellOff, ArchiveRestore, Archive, Mail, Lock, User } from 'lucide-react';
 import companyLogo from './assets/images/developershub_corporation_logo.jpg';
 import myProfile from './assets/images/My_LinkedIn_Profile.jpg';
+import siteFavicon from './assets/images/favicon.svg'
 
-const AuthScreen = ({ onEnter }) => {
+const AuthScreen = ({ onEnter, onAuth, user, setTables }) => {
   const [step, setStep] = useState(0); // 0: Center Intro, 1: Slide Left & Show Form, 2: Fade Out
   const [isLogin, setIsLogin] = useState(true);
-
-  // Default tables for brand new accounts
-  const defaultTables = [
-    { id: 0, title: "To Do", tasks: [], isArchived: false },
-    { id: 1, title: "In Progress", tasks: [], isArchived: false },
-    { id: 2, title: "Completed", tasks: [], isArchived: false }
-  ];
-
-  // 1. LOAD DATA when user logs in
-  useEffect(() => {
-    if (user) {
-      const savedUserTasks = localStorage.getItem(`taskly_data_${user.id}`);
-      if (savedUserTasks) {
-        setTables(JSON.parse(savedUserTasks));
-      } else {
-        setTables(defaultTables); // Give them fresh tables if they are new
-      }
-    }
-  }, [user]);
-
-  // 2. SAVE DATA whenever tables change
-  useEffect(() => {
-    if (user && tables.length > 0) {
-      localStorage.setItem(`taskly_data_${user.id}`, JSON.stringify(tables));
-    }
-  }, [tables, user]);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: ""
+  });
 
   // Auto-slide to the left after 2.5 seconds
   useEffect(() => {
@@ -75,9 +20,45 @@ const AuthScreen = ({ onEnter }) => {
     return () => clearTimeout(timer);
   }, []);
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (isLogin) {
+      onAuth(
+        {
+          email: formData.email,
+          password: formData.password
+        },
+        "login"
+      );
+    } else {
+      onAuth(formData, "register");
+    }
+  };
+
   const handleGuestEntry = () => {
-    setStep(2); // Trigger fade out
-    setTimeout(onEnter, 800); // Enter the main app after animation completes
+    const guestUser = {
+      id: "guest",
+      name: "Guest User",
+      email: "guest@local"
+    };
+
+    const guestToken = "guest_token_123";
+
+    // Use correct keys
+    localStorage.setItem("taskly_user", JSON.stringify(guestUser));
+    localStorage.setItem("taskly_token", guestToken);
+
+    // Directly update App state via onAuth
+    onAuth(
+      {
+        token: guestToken,
+        user: guestUser
+      },
+      "guest"
+    );
+
+    setStep(2);
   };
 
   return (
@@ -99,8 +80,8 @@ const AuthScreen = ({ onEnter }) => {
               className="flex flex-col items-center text-center max-w-md"
             >
               {/* Company Logo Placeholder */}
-              <div className="w-24 h-24 mb-6 bg-blue-100 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden border-2 border-blue-200">
-                <img src={companyLogo} alt="Company Logo" className="w-full h-full object-cover text-[10px] text-gray-400" />
+              <div>
+                <img src={siteFavicon} alt="Company Logo" className="w-full h-full object-cover text-[10px] text-gray-400" />
               </div>
 
               <h1 className="text-3xl font-extrabold text-blue-900 tracking-tight mb-4">
@@ -134,13 +115,19 @@ const AuthScreen = ({ onEnter }) => {
                     {isLogin ? "Welcome Back" : "Create an Account"}
                   </h2>
 
-                  <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                  <form className="space-y-4" onSubmit={handleSubmit}>
                     {!isLogin && (
                       <div>
                         <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1.5">Full Name</label>
                         <div className="relative">
                           <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                          <input type="text" className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all bg-gray-50" placeholder="John Doe" />
+                          <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all bg-gray-50"
+                            placeholder="Khawaja Qasid"
+                          />
                         </div>
                       </div>
                     )}
@@ -148,14 +135,26 @@ const AuthScreen = ({ onEnter }) => {
                       <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1.5">Email Address</label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <input type="email" className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all bg-gray-50" placeholder="you@company.com" />
+                        <input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all bg-gray-50"
+                          placeholder="you@company.com"
+                        />
                       </div>
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-gray-500 uppercase mb-1.5">Password</label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <input type="password" className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all bg-gray-50" placeholder="••••••••" />
+                        <input
+                          type="password"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all bg-gray-50"
+                          placeholder="••••••••"
+                        />
                       </div>
                     </div>
 
@@ -189,17 +188,26 @@ const AuthScreen = ({ onEnter }) => {
 };
 
 function App() {
+  const [token, setToken] = useState(localStorage.getItem("taskly_token") || null);
+  const [user, setUser] = useState(() => {
+    try {
+      const data = localStorage.getItem("taskly_user");
+      return (data && data !== "undefined" && data !== "null") ? JSON.parse(data) : null;
+    } catch (err) {
+      console.error("Local storage parse error:", err);
+      return null;
+    }
+  });
+  const [tables, setTables] = useState([]);
+  const [isAppVisible, setIsAppVisible] = useState(!!token);
   const [searchQuery, setSearchQuery] = useState("");
-  const [token, setToken] = useState(localStorage.getItem("taskly_token"));
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem("taskly_user")));
-  const [isAppVisible, setIsAppVisible] = useState(!!token); // Visible if token exists
   const [activeTable, setActiveTable] = useState(0);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [newTableName, setNewTableName] = useState("");
   const [isRemoveTableModalOpen, setIsRemoveTableModalOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
-
+  const [sourceTableId, setSourceTableId] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -207,12 +215,49 @@ function App() {
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [draggedOverTableId, setDraggedOverTableId] = useState(null);
 
-
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [editUserData, setEditUserData] = useState({
     name: user?.name || "",
     email: user?.email || ""
   });
+
+  const handleAuth = async (formData, endpoint) => {
+
+    // ✅ HANDLE GUEST WITHOUT API CALL
+    if (endpoint === "guest") {
+      localStorage.setItem("taskly_token", formData.token);
+      localStorage.setItem("taskly_user", JSON.stringify(formData.user));
+
+      setToken(formData.token);
+      setUser(formData.user);
+      setIsAppVisible(true);
+
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/auth/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (data.token) {
+        localStorage.setItem("taskly_token", data.token);
+        localStorage.setItem("taskly_user", JSON.stringify(data.user));
+
+        setToken(data.token);
+        setUser(data.user);
+        setIsAppVisible(true);
+      } else {
+        alert(data.message || "Authentication failed");
+      }
+    } catch (err) {
+      console.error("Auth error:", err);
+    }
+  };
 
   // Notification State
   const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(false);
@@ -228,19 +273,99 @@ function App() {
     audio.play().catch(() => { });
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("taskly_token");
+    localStorage.removeItem("taskly_user");
+    setToken(null);
+    setUser(null);
+    setIsAppVisible(false);
+
+  };
+
+  // 🔧 FIX #1: LOAD DATA when user logs in - Handle both _id and id
+  useEffect(() => {
+    if (!user || user.id === "guest") {
+      setTables([]);
+      return;
+    }
+
+    const fetchTablesAndTasks = async () => {
+      try {
+        // 🔥 FIX: Use user._id OR user.id (backend might return different field names)
+        const userId = user._id || user.id;
+        console.log("🔍 FETCHING DATA FOR USER ID:", userId);
+        console.log("🔍 FULL USER OBJECT:", user);
+
+        // 1️⃣ FETCH TABLES FIRST
+        const tableRes = await fetch(`http://localhost:5000/api/tables/${userId}`);
+        const tableData = await tableRes.json();
+
+        console.log("📊 TABLES FROM DB:", tableData);
+
+        // Create base tables
+        const tableMap = {};
+        tableData.forEach(t => {
+          tableMap[t.tableId] = {
+            id: t.tableId,
+            title: t.title,
+            tasks: [],
+            isArchived: false
+          };
+        });
+
+        // 2️⃣ FETCH TASKS
+        const taskRes = await fetch(`http://localhost:5000/api/tasks/${userId}`);
+        const taskData = await taskRes.json();
+
+        console.log("✅ TASKS FROM DB:", taskData);
+
+        // 3️⃣ ASSIGN TASKS TO TABLES
+        taskData.forEach(task => {
+          if (!tableMap[task.tableId]) {
+            // fallback if table missing
+            tableMap[task.tableId] = {
+              id: task.tableId,
+              title: `Table ${task.tableId}`,
+              tasks: [],
+              isArchived: false
+            };
+          }
+
+          tableMap[task.tableId].tasks.push({
+            ...task,
+            id: task._id // IMPORTANT FIX - use MongoDB _id
+          });
+        });
+
+        // 4️⃣ SET STATE
+        const loadedTables = Object.values(tableMap);
+        console.log("🎯 FINAL TABLES TO RENDER:", loadedTables);
+        setTables(loadedTables);
+
+      } catch (err) {
+        console.error("❌ Fetch error:", err);
+        setTables([]);
+      }
+    };
+
+    fetchTablesAndTasks();
+  }, [user]);
+
   const [filters, setFilters] = useState({
     status: "All",
     beforeDate: "",
     isFilterOpen: false
   });
 
-  const [tables, setTables] = useState([]);
   // --- Core Table Logic ---
   const activeTables = tables.filter(t => !t.isArchived);
   const archivedTablesList = tables.filter(t => t.isArchived);
 
   // Logic to find the current active table or return null if none exist
-  const currentTable = activeTables.find(t => t.id === activeTable) || activeTables[0] || null;
+  const currentTable =
+    activeTables.find(t => t.id === activeTable) ||
+    activeTables[0] ||
+    null;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTaskData, setNewTaskData] = useState({ title: "", description: "", dueDate: "" });
@@ -280,27 +405,25 @@ function App() {
     // Re-schedule next check
     notifTimeoutRef.current = setTimeout(triggerDueNotification, 300000);
   };
-  useEffect(() => {
-    if (token) {
-      // Save to LocalStorage for offline speed
-      localStorage.setItem("taskly_data", JSON.stringify(tables));
-
-      // Sync with Backend (Optional debounced API call)
-      // fetch('http://localhost:5000/api/tasks/sync', {
-      //   method: 'POST',
-      //   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(tables)
-      // });
-    }
-  }, [tables, token]);
 
   // --- Helper Functions ---
 
-  const handleRenameTable = (newName) => {
+  const handleRenameTable = async (newName) => {
     const updatedTables = tables.map(table =>
       table.id === activeTable ? { ...table, title: newName } : table
     );
     setTables(updatedTables);
+
+    // Save to DB
+    try {
+      await fetch(`http://localhost:5000/api/tables/${activeTable}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newName })
+      });
+    } catch (err) {
+      console.error('Rename error:', err);
+    }
   };
 
   const exportData = () => {
@@ -343,94 +466,213 @@ function App() {
     setActiveTable(id);
   };
 
-  const submitNewTable = (e) => {
+  // 🔧 FIX #2: Fixed table creation to use the title as identifier
+  const submitNewTable = async (e) => {
     e.preventDefault();
+
     if (!newTableName.trim()) return;
-    const newTable = { id: Date.now(), title: newTableName, tasks: [], isArchived: false };
+
+    // 🔥 FIX: Generate a unique numeric ID (keep this for internal tracking)
+    const uniqueTableId = String(Date.now());
+
+    const newTable = {
+      id: uniqueTableId,
+      title: newTableName, // This is what the user sees
+      tasks: [],
+      isArchived: false
+    };
+
     setTables([...tables, newTable]);
+
+    // 🔥 FIX: Use user._id OR user.id
+    const userId = user._id || user.id;
+
+    try {
+      await fetch("http://localhost:5000/api/tables", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userId: userId,
+          tableId: uniqueTableId, // Send the numeric ID
+          title: newTableName // Send the actual title/name
+        })
+      });
+
+      console.log("✅ Table created:", { userId, tableId: uniqueTableId, title: newTableName });
+
+    } catch (err) {
+      console.error("❌ Table save error:", err);
+    }
+
     setActiveTable(newTable.id);
     setIsTableModalOpen(false);
     setNewTableName("");
   };
 
-  const deleteSpecificTable = (tableId) => {
+  const deleteSpecificTable = async (tableId) => {
+    try {
+        await fetch(`http://localhost:5000/api/tables/${tableId}`, {
+            method: 'DELETE'
+        });
+    } catch (err) {
+        console.error('Delete table error:', err);
+    }
+
     const updatedTables = tables.filter((table) => table.id !== tableId);
     setTables(updatedTables);
-  };
+};
 
-  const handleDropTask = (e, targetTableId) => {
+  const handleDropTask = async (e, targetTableId) => {
     e.preventDefault();
     setDraggedOverTableId(null);
 
-    // If we dropped it on the same table or have no task, do nothing
-    if (!draggedTaskId || targetTableId === activeTable) return;
+    if (!draggedTaskId || targetTableId === sourceTableId) return;
 
+    let taskToMove = null;
+
+    // 🔍 STEP 1: Find the task BEFORE state update
+    const sourceTable = tables.find(t => t.id === sourceTableId);
+    if (sourceTable) {
+      taskToMove = sourceTable.tasks.find(t => t.id === draggedTaskId);
+    }
+
+    if (!taskToMove) return;
+
+    // 🌐 STEP 2: UPDATE DATABASE FIRST
+    try {
+      await fetch(`http://localhost:5000/api/tasks/${taskToMove._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          tableId: targetTableId
+        })
+      });
+    } catch (err) {
+      console.error("Move task error:", err);
+      return; // stop if DB fails
+    }
+
+    // 🎯 STEP 3: UPDATE FRONTEND STATE
     setTables(prevTables => {
-      let taskToMove = null;
+      let movedTask = null;
 
-      // 1. Remove from current active table
-      const removedFromSource = prevTables.map(table => {
-        if (table.id === activeTable) {
-          taskToMove = table.tasks.find(t => t.id === draggedTaskId);
-          return { ...table, tasks: table.tasks.filter(t => t.id !== draggedTaskId) };
+      const updated = prevTables.map(table => {
+        if (table.id === sourceTableId) {
+          movedTask = table.tasks.find(t => t.id === draggedTaskId);
+          return {
+            ...table,
+            tasks: table.tasks.filter(t => t.id !== draggedTaskId)
+          };
         }
         return table;
       });
 
-      // 2. Add to target table
-      if (taskToMove) {
-        playActionSound(); // Play the swish sound!
-        return removedFromSource.map(table => {
-          if (table.id === targetTableId) {
-            return { ...table, tasks: [...table.tasks, taskToMove] };
-          }
-          return table;
-        });
-      }
-      return prevTables;
+      return updated.map(table => {
+        if (table.id === targetTableId && movedTask) {
+          return {
+            ...table,
+            tasks: [...table.tasks, movedTask]
+          };
+        }
+        return table;
+      });
     });
 
     setDraggedTaskId(null);
   };
 
-  const submitNewTask = (e) => {
+  // 🔧 FIX #3: Fixed task submission to use correct user ID
+  const submitNewTask = async (e) => {
     e.preventDefault();
     if (!currentTable) return;
-    const updatedTables = tables.map(table => {
-      if (table.id === currentTable.id) {
-        if (editingTaskId) {
+
+    const userId = user._id || user.id;
+
+    if (editingTaskId) {
+      // Edit existing task
+      const updatedTables = tables.map(table => {
+        if (String(table.id) === String(currentTable.id)) {
           return {
             ...table,
-            tasks: table.tasks.map(t => t.id === editingTaskId ? { ...t, ...newTaskData } : t)
+            tasks: table.tasks.map(t =>
+              String(t.id) === String(editingTaskId) ? { ...t, ...newTaskData } : t
+            )
           };
-        } else {
-          const newTask = {
-            id: Date.now(),
-            title: newTaskData.title || "Untitled Task",
-            description: newTaskData.description || "No description provided.",
-            status: "Pending",
-            dueDate: newTaskData.dueDate || new Date().toISOString().split('T')[0]
-          };
-          playActionSound();
-          return { ...table, tasks: [...table.tasks, newTask] };
         }
+        return table;
+      });
+      setTables(updatedTables);
+    } else {
+      // Create new task
+      const newTask = {
+        userId: userId,
+        tableId: String(currentTable.id),
+        tableTitle: currentTable.title,
+        title: newTaskData.title,
+        description: newTaskData.description || "No description provided.",
+        status: "Pending",
+        dueDate: newTaskData.dueDate || new Date().toISOString().split('T')[0]
+      };
+
+      try {
+        const res = await fetch("http://localhost:5000/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newTask)
+        });
+
+        const savedTask = await res.json();
+        console.log("Task saved to DB:", savedTask);
+
+        // Use MongoDB _id as the id
+        const taskWithId = {
+          ...savedTask,
+          id: savedTask._id
+        };
+
+        playActionSound();
+
+        setTables(prevTables => prevTables.map(table => {
+          if (String(table.id) === String(currentTable.id)) {
+            return { ...table, tasks: [...table.tasks, taskWithId] };
+          }
+          return table;
+        }));
+
+      } catch (err) {
+        console.error("Save error:", err);
       }
-      return table;
-    });
-    setTables(updatedTables);
+    }
+
     setIsModalOpen(false);
     setEditingTaskId(null);
     setNewTaskData({ title: "", description: "", dueDate: "" });
   };
 
+  const deleteSpecificTask = (taskId) => {
+    if (!currentTable) return;
+    const updatedTables = tables.map(table => {
+      if (String(table.id) === String(currentTable.id)) {
+        // Check both .id (frontend) and ._id (MongoDB)
+        return { ...table, tasks: table.tasks.filter((task) => String(task.id) !== String(taskId) && String(task._id) !== String(taskId)) };
+      }
+      return table;
+    });
+    setTables(updatedTables);
+  };
+
   const toggleTaskStatus = (taskId) => {
     if (!currentTable) return;
     const updatedTables = tables.map(table => {
-      if (table.id === currentTable.id) {
+      if (String(table.id) === String(currentTable.id)) {
         return {
           ...table,
           tasks: table.tasks.map(t => {
-            if (t.id === taskId) {
+            if (String(t.id) === String(taskId) || String(t._id) === String(taskId)) {
               const newStatus = t.status === "Completed" ? "Pending" : "Completed";
               newStatus === "Completed" ? playVictorySound() : playActionSound();
               return { ...t, status: newStatus };
@@ -438,17 +680,6 @@ function App() {
             return t;
           })
         };
-      }
-      return table;
-    });
-    setTables(updatedTables);
-  };
-
-  const deleteSpecificTask = (taskId) => {
-    if (!currentTable) return;
-    const updatedTables = tables.map(table => {
-      if (table.id === currentTable.id) {
-        return { ...table, tasks: table.tasks.filter((task) => task.id !== taskId) };
       }
       return table;
     });
@@ -465,7 +696,8 @@ function App() {
   );
 
   const visibleTasks = currentTable ? currentTable.tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || task.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filters.status === "All" || task.status === filters.status;
     const matchesDate = !filters.beforeDate || new Date(task.dueDate) <= new Date(filters.beforeDate);
     return matchesSearch && matchesStatus && matchesDate;
@@ -475,6 +707,43 @@ function App() {
     return <AuthScreen onEnter={() => setIsAppVisible(true)} onAuth={handleAuth} />;
   }
 
+  const handleUpdateProfile = async () => {
+    if (!editUserData.name.trim() || !editUserData.email.trim()) {
+      alert("Name and Email cannot be empty.");
+      return;
+    }
+
+    console.log("ATTEMPTING UPDATE WITH DATA:", editUserData);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editUserData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Use the server's response to ensure IDs (like _id vs id) are consistent
+        const updatedUser = data.user || { ...user, ...editUserData };
+
+        setUser(updatedUser);
+        localStorage.setItem("taskly_user", JSON.stringify(updatedUser));
+        setIsEditProfileModalOpen(false);
+      } else {
+        const errData = await response.json();
+        console.error("SERVER ERROR:", errData);
+        alert(errData.message || "Update failed");
+      }
+    } catch (err) {
+      console.error("NETWORK ERROR:", err);
+      alert("CONNECTION ERROR: Is your backend running on port 5000?");
+    }
+  };
   // --- MAIN APP RENDER ---
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-slate-900 text-white" : "bg-[#F0F9FF]"}`}>
@@ -565,7 +834,7 @@ function App() {
         </div>
 
         {/* Auth Section: Show Login if Guest, Show Profile if Logged In */}
-        {!token ? (
+        {!(token && user && user.id !== "guest") ? (
           <button
             onClick={() => setIsAppVisible(false)}
             className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-md active:scale-95 uppercase"
@@ -577,17 +846,21 @@ function App() {
           <div className="relative group">
             <button className="flex items-center gap-2 p-1 hover:bg-gray-100 rounded-full transition-all">
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold uppercase border-2 border-white shadow-sm">
-                {user?.name?.charAt(0) || "U"}
+                {user?.name ? user.name.charAt(0) : "U"}
               </div>
             </button>
 
             <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 shadow-xl rounded-xl py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
               <div className="px-4 py-2 border-b border-gray-50 mb-1">
-                <p className="text-[12px] font-bold text-gray-800 truncate">{user?.name || "User"}</p>
-                <p className="text-[10px] text-gray-400 truncate">{user?.email || "Guest User"}</p>
+                {/* Fix: Explicitly show user name or 'Loading...' instead of defaulting to Guest while logged in */}
+                <p className="text-[12px] font-bold text-gray-800 truncate">{user?.name || "Loading..."}</p>
+                <p className="text-[10px] text-gray-400 truncate">{user?.email || ""}</p>
               </div>
               <button
-                onClick={() => { setEditUserData({ name: user.name, email: user.email }); setIsEditProfileModalOpen(true); }}
+                onClick={() => {
+                  setEditUserData({ name: user?.name || "", email: user?.email || "" });
+                  setIsEditProfileModalOpen(true);
+                }}
                 className="w-full text-left px-4 py-2 text-[11px] font-bold text-gray-600 hover:bg-blue-50 transition-colors uppercase"
               >
                 Edit Profile
@@ -621,8 +894,8 @@ function App() {
                   whileHover={{ x: 4 }}
                   onClick={() => setActiveTable(table.id)}
                   onDragOver={(e) => { e.preventDefault(); setDraggedOverTableId(table.id); }}
-                  onDragLeave={() => setDraggedOverTableId(null)}
-                  onDrop={(e) => handleDropTask(e, table.id)}
+                  onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDraggedOverTableId(null); }}
+                  onDrop={(e) => { setDraggedOverTableId(null); handleDropTask(e, table.id); }}
                   className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${draggedOverTableId === table.id
                     ? (darkMode ? 'bg-slate-600 border-dashed border-2 border-blue-400 scale-105' : 'bg-blue-50 border-dashed border-2 border-blue-500 scale-105 shadow-md')
                     : activeTable === table.id
@@ -682,8 +955,11 @@ function App() {
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMoreMenuOpen(false)} />
                             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={`absolute right-0 mt-2 w-48 shadow-2xl rounded-xl border z-50 p-2 ${darkMode ? "bg-slate-800 border-slate-700" : "bg-white"}`}>
-                              <button onClick={markAllCompleted} className={`w-full text-left px-3 py-2 text-[11px] font-bold uppercase rounded-lg ${darkMode ? "hover:bg-slate-700 text-gray-300" : "hover:bg-blue-50 text-gray-600"}`}>Mark All Completed</button>
-                              <button onClick={archiveTable} className={`w-full text-left px-3 py-2 text-[11px] font-bold uppercase text-red-500 rounded-lg ${darkMode ? "hover:bg-red-500/10" : "hover:bg-red-50"}`}>Archive Table</button>
+                              <button onClick={() => { setIsModalOpen(true); setNewTaskData({ title: "", description: "", dueDate: "" }); setIsMoreMenuOpen(false); }} className={`w-full text-left px-3 py-2 text-[11px] font-bold uppercase rounded-lg ${darkMode ? "hover:bg-slate-700 text-gray-300" : "hover:bg-blue-50 text-gray-600"}`}>Add New Task</button>
+                              <button onClick={() => { setIsRemoveModalOpen(true); setIsMoreMenuOpen(false); }} className={`w-full text-left px-3 py-2 text-[11px] font-bold uppercase rounded-lg ${darkMode ? "hover:bg-slate-700 text-gray-300" : "hover:bg-blue-50 text-gray-600"}`}>Manage Tasks</button>
+                              <div className={`my-1 border-t ${darkMode ? "border-slate-700" : "border-gray-100"}`}></div>
+                              <button onClick={() => { markAllCompleted(); setIsMoreMenuOpen(false); }} className={`w-full text-left px-3 py-2 text-[11px] font-bold uppercase rounded-lg ${darkMode ? "hover:bg-slate-700 text-gray-300" : "hover:bg-blue-50 text-gray-600"}`}>Mark All Completed</button>
+                              <button onClick={() => { archiveTable(); setIsMoreMenuOpen(false); }} className={`w-full text-left px-3 py-2 text-[11px] font-bold uppercase text-red-500 rounded-lg ${darkMode ? "hover:bg-red-500/10" : "hover:bg-red-50"}`}>Archive Table</button>
                             </motion.div>
                           </>
                         )}
@@ -709,7 +985,10 @@ function App() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         draggable
-                        onDragStart={() => setDraggedTaskId(task.id)}
+                        onDragStart={() => {
+                          setDraggedTaskId(task.id);
+                          setSourceTableId(currentTable.id); // 👈 important
+                        }}
                         onDragEnd={() => setDraggedTaskId(null)}
                         className={`grid grid-cols-12 gap-4 px-4 py-3 items-center border-b last:border-0 group transition-colors cursor-grab active:cursor-grabbing ${draggedTaskId === task.id ? 'opacity-50 scale-95 shadow-inner' : ''} ${darkMode ? "hover:bg-slate-800 border-slate-700" : "hover:bg-blue-50/30 border-gray-100"}`}
                       >
@@ -726,7 +1005,9 @@ function App() {
                     ))
                   ) : (
                     <div className="p-12 flex flex-col items-center justify-center text-gray-300">
-                      <LayoutGrid size={32} strokeWidth={1} /><p className="text-[12px] mt-2">No tasks found</p>
+                      <LayoutGrid size={32} strokeWidth={1} />
+                      <p className="text-[12px] mt-2 mb-4">No tasks found</p>
+                      <button onClick={() => { setIsModalOpen(true); setNewTaskData({ title: "", description: "", dueDate: "" }); }} className="px-4 py-2 text-[12px] font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors">Create First Task</button>
                     </div>
                   )}
                 </div>
@@ -753,7 +1034,7 @@ function App() {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className={`rounded-xl shadow-2xl w-full max-w-md overflow-hidden ${darkMode ? "bg-slate-800 text-white" : "bg-white"}`}>
               <div className={`px-6 py-4 border-b flex justify-between items-center ${darkMode ? "bg-slate-700 border-slate-600" : "bg-gray-50/50"}`}>
                 <h2 className="text-[14px] font-bold">{editingTaskId ? "Edit Task" : "Create New Task"}</h2>
-                <button onClick={() => { setIsModalOpen(false); setEditingTaskId(null); }} className="text-gray-400 hover:text-red-500"><Minus size={16} className="rotate-45" /></button>
+                <button onClick={() => { setIsModalOpen(false); setEditingTaskId(null); }} className="text-gray-400 hover:text-red-500"><X size={16} /></button>
               </div>
               <form onSubmit={submitNewTask} className="p-6 space-y-4">
                 <div><label className="block text-[11px] font-bold text-gray-500 uppercase mb-1.5">Task Title</label><input type="text" required value={newTaskData.title} onChange={(e) => setNewTaskData({ ...newTaskData, title: e.target.value })} className={`w-full px-3 py-2 border rounded-md text-[13px] outline-none focus:border-blue-500 ${darkMode ? "bg-slate-700 border-slate-600" : "bg-gray-50"}`} /></div>
@@ -776,7 +1057,7 @@ function App() {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className={`rounded-xl shadow-2xl w-full max-w-sm overflow-hidden ${darkMode ? "bg-slate-800" : "bg-white"}`}>
               <div className={`px-6 py-4 border-b flex justify-between items-center ${darkMode ? "bg-slate-700 border-slate-600" : "bg-red-50/30"}`}>
                 <h2 className="text-[13px] font-bold uppercase">Delete Tasks</h2>
-                <button onClick={() => setIsRemoveModalOpen(false)} className="text-gray-400 hover:text-gray-600"><Minus size={16} className="rotate-45" /></button>
+                <button onClick={() => setIsRemoveModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
               </div>
               <div className="p-4 max-h-[300px] overflow-y-auto">
                 {currentTable?.tasks.length > 0 ? (
@@ -803,7 +1084,7 @@ function App() {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className={`rounded-xl shadow-2xl w-full max-w-sm overflow-hidden ${darkMode ? "bg-slate-800" : "bg-white"}`}>
               <div className="px-6 py-4 border-b flex justify-between items-center">
                 <h2 className="text-[14px] font-bold">New Table</h2>
-                <button onClick={() => setIsTableModalOpen(false)} className="text-gray-400 hover:text-red-500"><Minus size={16} className="rotate-45" /></button>
+                <button onClick={() => setIsTableModalOpen(false)} className="text-gray-400 hover:text-red-500"><X size={16} /></button>
               </div>
               <form onSubmit={submitNewTable} className="p-6 space-y-4">
                 <input type="text" required autoFocus value={newTableName} onChange={(e) => setNewTableName(e.target.value)} placeholder="Enter Table Name" className={`w-full px-3 py-2 border rounded-md text-[13px] outline-none ${darkMode ? "bg-slate-700 border-slate-600" : "bg-gray-50"}`} />
@@ -817,16 +1098,39 @@ function App() {
       <AnimatePresence>
         {isRemoveTableModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className={`rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border ${darkMode ? "bg-slate-800 border-slate-700" : "bg-white"}`}>
-              <div className="px-6 py-4 border-b flex justify-between items-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border ${darkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-gray-200 text-gray-900"
+                }`}
+            >
+              {/* Header */}
+              <div className={`px-6 py-4 border-b flex justify-between items-center ${darkMode ? "border-slate-700" : "border-gray-100"}`}>
                 <h2 className="text-[13px] font-bold uppercase">Permanent Delete</h2>
-                <button onClick={() => setIsRemoveTableModalOpen(false)} className="text-gray-400 hover:text-gray-600"><Minus size={16} className="rotate-45" /></button>
+                <button
+                  onClick={() => setIsRemoveTableModalOpen(false)}
+                  className={`${darkMode ? "text-slate-400 hover:text-white" : "text-gray-400 hover:text-gray-600"}`}
+                >
+                  <X size={16} />
+                </button>
               </div>
+
+              {/* Table List */}
               <div className="p-4 space-y-2">
                 {tables.filter(t => !t.isArchived).map((table) => (
-                  <div key={table.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 group hover:bg-red-50 transition-colors">
-                    <span className="text-[12px] font-medium">{table.title}</span>
-                    <button onClick={() => deleteSpecificTable(table.id)} className="text-[10px] font-bold text-red-500 opacity-0 group-hover:opacity-100 bg-white border border-red-200 px-2 py-1 rounded">Delete</button>
+                  <div
+                    key={table.id}
+                    className={`flex items-center justify-between p-3 rounded-lg group transition-colors ${darkMode ? "bg-slate-700/50 hover:bg-red-900/30" : "bg-gray-50 hover:bg-red-50"
+                      }`}
+                  >
+                    <span className="font-medium">{table.title}</span>
+                    <button
+                      onClick={() => deleteSpecificTable(table.id)}
+                      className="text-[10px] font-bold text-red-500 opacity-0 group-hover:opacity-100 bg-white border border-red-200 px-2 py-1 rounded"
+                    >
+                      Delete
+                    </button>
                   </div>
                 ))}
               </div>
@@ -842,7 +1146,7 @@ function App() {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className={`rounded-xl shadow-2xl w-full max-w-sm overflow-hidden ${darkMode ? "bg-slate-800" : "bg-white"}`}>
               <div className="px-6 py-4 border-b flex justify-between items-center">
                 <h2 className="text-[14px] font-bold uppercase">Edit Profile</h2>
-                <button onClick={() => setIsEditProfileModalOpen(false)} className="text-gray-400 hover:text-red-500"><Minus size={16} className="rotate-45" /></button>
+                <button onClick={() => setIsEditProfileModalOpen(false)} className="text-gray-400 hover:text-red-500"><X size={16} /></button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
@@ -854,13 +1158,9 @@ function App() {
                   <input type="email" value={editUserData.email} onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })} className={`w-full px-3 py-2 border rounded-md text-[13px] outline-none ${darkMode ? "bg-slate-700 border-slate-600" : "bg-gray-50"}`} />
                 </div>
                 <button
-                  onClick={() => {
-                    const updatedUser = { ...user, ...editUserData };
-                    setUser(updatedUser);
-                    localStorage.setItem("taskly_user", JSON.stringify(updatedUser));
-                    setIsEditProfileModalOpen(false);
-                  }}
-                  className="w-full px-4 py-2 text-[12px] font-bold text-white bg-blue-600 rounded-md"
+                  type="button"
+                  onClick={handleUpdateProfile}
+                  className="w-full px-4 py-2 text-[12px] font-bold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Save Changes
                 </button>
