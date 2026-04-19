@@ -20,21 +20,20 @@ const AuthScreen = ({ onEnter, onAuth, user, setTables }) => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleSubmit = (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (isLogin) {
-      onAuth(
-        {
-          email: formData.email,
-          password: formData.password
-        },
-        "login"
-      );
+        const success = await onAuth(
+            { email: formData.email, password: formData.password },
+            "login"
+        );
+        if (success) setStep(2);
     } else {
-      onAuth(formData, "register");
+        const success = await onAuth(formData, "register");
+        if (success) setStep(2);
     }
-  };
+};
 
   const handleGuestEntry = () => {
     const guestUser = {
@@ -230,7 +229,7 @@ function App() {
 
       setToken(formData.token);
       setUser(formData.user);
-      setIsAppVisible(true);
+      setTimeout(() => setIsAppVisible(true), 800);
 
       return;
     }
@@ -250,9 +249,11 @@ function App() {
 
         setToken(data.token);
         setUser(data.user);
-        setIsAppVisible(true);
+        setTimeout(() => setIsAppVisible(true), 800);
+        return true;
       } else {
         alert(data.message || "Authentication failed");
+        return false;
       }
     } catch (err) {
       console.error("Auth error:", err);
@@ -305,7 +306,7 @@ function App() {
         // Create base tables
         const tableMap = {};
         tableData.forEach(t => {
-          tableMap[t.tableId] = {
+          tableMap[String(t.tableId)] = {
             id: t.tableId,
             title: t.title,
             tasks: [],
@@ -321,6 +322,7 @@ function App() {
 
         // 3️⃣ ASSIGN TASKS TO TABLES
         taskData.forEach(task => {
+          const key = String(task.tableId);
           if (!tableMap[task.tableId]) {
             // fallback if table missing
             tableMap[task.tableId] = {
