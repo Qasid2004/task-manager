@@ -642,17 +642,33 @@ function App() {
     setNewTaskData({ title: "", description: "", dueDate: "" });
   };
 
-  const deleteSpecificTask = (taskId) => {
+  const deleteSpecificTask = async (taskId) => {
     if (!currentTable) return;
+
+    // DB se delete karo
+    try {
+        await fetch(`http://localhost:5000/api/tasks/${taskId}`, {
+            method: 'DELETE'
+        });
+    } catch (err) {
+        console.error('Delete task error:', err);
+    }
+
+    // Frontend se bhi hatao
     const updatedTables = tables.map(table => {
-      if (String(table.id) === String(currentTable.id)) {
-        // Check both .id (frontend) and ._id (MongoDB)
-        return { ...table, tasks: table.tasks.filter((task) => String(task.id) !== String(taskId) && String(task._id) !== String(taskId)) };
-      }
-      return table;
+        if (String(table.id) === String(currentTable.id)) {
+            return {
+                ...table,
+                tasks: table.tasks.filter(task =>
+                    String(task.id) !== String(taskId) &&
+                    String(task._id) !== String(taskId)
+                )
+            };
+        }
+        return table;
     });
     setTables(updatedTables);
-  };
+};
 
   const toggleTaskStatus = async (taskId) => {
     if (!currentTable) return;
