@@ -264,16 +264,6 @@ function App() {
   const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(false);
   const notifTimeoutRef = useRef(null);
 
-  // Audio Logic
-  const playVictorySound = () => {
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3');
-    audio.play().catch(() => { });
-  };
-  const playActionSound = () => {
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
-    audio.play().catch(() => { });
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("taskly_token");
     localStorage.removeItem("taskly_user");
@@ -447,7 +437,6 @@ function App() {
         : table
     );
     setTables(updatedTables);
-    playVictorySound();
     setIsMoreMenuOpen(false);
   };
 
@@ -636,8 +625,6 @@ function App() {
           id: savedTask._id
         };
 
-        playActionSound();
-
         setTables(prevTables => prevTables.map(table => {
           if (String(table.id) === String(currentTable.id)) {
             return { ...table, tasks: [...table.tasks, taskWithId] };
@@ -679,7 +666,6 @@ function App() {
                 tasks: table.tasks.map(t => {
                     if (String(t.id) === String(taskId) || String(t._id) === String(taskId)) {
                         newStatus = t.status === "Completed" ? "Pending" : "Completed";
-                        newStatus === "Completed" ? playVictorySound() : playActionSound();
                         return { ...t, status: newStatus };
                     }
                     return t;
