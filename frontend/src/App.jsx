@@ -667,26 +667,41 @@ function App() {
     setTables(updatedTables);
   };
 
-  const toggleTaskStatus = (taskId) => {
+  const toggleTaskStatus = async (taskId) => {
     if (!currentTable) return;
+
+    // Pehle current status dhundo
+    let newStatus = "";
     const updatedTables = tables.map(table => {
-      if (String(table.id) === String(currentTable.id)) {
-        return {
-          ...table,
-          tasks: table.tasks.map(t => {
-            if (String(t.id) === String(taskId) || String(t._id) === String(taskId)) {
-              const newStatus = t.status === "Completed" ? "Pending" : "Completed";
-              newStatus === "Completed" ? playVictorySound() : playActionSound();
-              return { ...t, status: newStatus };
-            }
-            return t;
-          })
-        };
-      }
-      return table;
+        if (String(table.id) === String(currentTable.id)) {
+            return {
+                ...table,
+                tasks: table.tasks.map(t => {
+                    if (String(t.id) === String(taskId) || String(t._id) === String(taskId)) {
+                        newStatus = t.status === "Completed" ? "Pending" : "Completed";
+                        newStatus === "Completed" ? playVictorySound() : playActionSound();
+                        return { ...t, status: newStatus };
+                    }
+                    return t;
+                })
+            };
+        }
+        return table;
     });
+
     setTables(updatedTables);
-  };
+
+    // DB mein save karo
+    try {
+        await fetch(`http://localhost:5000/api/tasks/${taskId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+    } catch (err) {
+        console.error('Status update error:', err);
+    }
+};
 
   // --- Derived Data ---
   const completedCount = currentTable ? currentTable.tasks.filter(t => t.status === "Completed").length : 0;
